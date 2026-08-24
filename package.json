@@ -11,7 +11,7 @@
   },
   "homepage": "https://assetrail.vercel.app",
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev",

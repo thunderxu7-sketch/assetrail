@@ -79,7 +79,7 @@ The demo intentionally uses deterministic fixtures and a signed cookie instead o
 
 ## Local development
 
-Requirements: Node.js 20+ and npm 10+.
+Requirements: Node.js 24+ and npm 11+.
 
 ```bash
 git clone https://github.com/thunderxu7-sketch/assetrail.git
