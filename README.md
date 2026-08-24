@@ -19,6 +19,7 @@ Deposit and withdrawal interfaces look like forms, but the real product is a dis
 - encode network policy as a shared domain contract rather than duplicating rules across UI and API code;
 - treat maintenance, congestion, memo/tag requirements, duplicate requests, high-risk holds, and delayed confirmations as product states;
 - introduce AI-assisted delivery without delegating acceptance to a model;
+- serve statically generated `/en` and `/zh` experiences with route-preserving language switching;
 - manage Core Web Vitals with budgets, field telemetry, stable geometry, and bundle inspection;
 - provide full-stack ownership through secure Route Handlers, server cache controls, CI, and deployment.
 
@@ -61,6 +62,7 @@ The demo intentionally uses deterministic fixtures and a signed cookie instead o
 - Request-bound transfer state is isolated behind Suspense instead of making the whole application dynamic.
 - Operational panels stream independently so a slow dependency does not delay the full control surface.
 - A token-protected, allowlisted revalidation endpoint prevents arbitrary cache eviction.
+- Locale-prefixed routes keep English and Chinese HTML independently indexable without turning static pages dynamic.
 
 ### Reliability and security
 

@@ -1,22 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { hasSafeJsonBody, isSameOriginRequest } from "@/lib/security";
+import { isLocale, translate, translateValidationMessage } from "@/lib/i18n";
 import { createTransferRecord, decodeTransferCookie, encodeTransferCookie, transferInputSchema } from "@/lib/transfers";
 
 const RECORD_COOKIE = "assetrail_transfer";
 const KEY_COOKIE = "assetrail_idempotency";
 
 export async function POST(request: NextRequest) {
+  const requestedLocale = request.headers.get("x-assetrail-locale") ?? undefined;
+  const locale = isLocale(requestedLocale) ? requestedLocale : "en";
+  const t = (source: string) => translate(locale, source);
+
   if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Cross-origin transfer requests are rejected." }, { status: 403 });
+    return NextResponse.json({ error: t("Cross-origin transfer requests are rejected.") }, { status: 403 });
   }
   if (!hasSafeJsonBody(request)) {
-    return NextResponse.json({ error: "Expected an application/json body under 4 KB." }, { status: 415 });
+    return NextResponse.json({ error: t("Expected an application/json body under 4 KB.") }, { status: 415 });
   }
 
   const idempotencyKey = request.headers.get("idempotency-key")?.trim();
   if (!idempotencyKey || idempotencyKey.length < 8 || idempotencyKey.length > 128) {
-    return NextResponse.json({ error: "A valid Idempotency-Key header is required." }, { status: 400 });
+    return NextResponse.json({ error: t("A valid Idempotency-Key header is required.") }, { status: 400 });
   }
 
   const existingKey = request.cookies.get(KEY_COOKIE)?.value;
@@ -29,13 +34,21 @@ export async function POST(request: NextRequest) {
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json({ error: "Malformed JSON body." }, { status: 400 });
+    return NextResponse.json({ error: t("Malformed JSON body.") }, { status: 400 });
   }
 
   const parsed = transferInputSchema.safeParse(payload);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Review the highlighted policy violations.", fields: parsed.error.flatten().fieldErrors },
+      {
+        error: t("Review the highlighted policy violations."),
+        fields: Object.fromEntries(
+          Object.entries(parsed.error.flatten().fieldErrors).map(([field, messages]) => [
+            field,
+            messages?.map((message) => translateValidationMessage(locale, message)),
+          ]),
+        ),
+      },
       { status: 422 },
     );
   }

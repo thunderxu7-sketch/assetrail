@@ -1,6 +1,10 @@
-export default function Loading() {
+import { translate } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
+
+export default async function Loading() {
+  const locale = await getLocale();
   return (
-    <div className="container page-loading" aria-label="Loading route">
+    <div className="container page-loading" aria-label={translate(locale, "Loading route")}>
       <div className="skeleton skeleton--eyebrow" />
       <div className="skeleton skeleton--heading" />
       <div className="skeleton-grid">

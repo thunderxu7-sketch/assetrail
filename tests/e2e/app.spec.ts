@@ -12,6 +12,25 @@ test("overview explains the product and rendering strategy", async ({ page }) =>
   expect(errors).toEqual([]);
 });
 
+test("language switch preserves the current route and renders Chinese content", async ({ page }) => {
+  await page.goto("/en/assets?view=table");
+  const chinesePreference = page.waitForResponse((response) =>
+    response.url().endsWith("/api/locale") && response.request().method() === "POST",
+  );
+  await page.getByRole("link", { name: "中文", exact: true }).click();
+  expect((await chinesePreference).status()).toBe(204);
+  await expect(page).toHaveURL(/\/zh\/assets\?view=table$/);
+  await expect(page.getByRole("heading", { name: "资产通道一览" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/zh$/);
+  await page.goto("/zh/assets");
+  await page.getByRole("link", { name: "EN", exact: true }).click();
+  await expect(page).toHaveURL(/\/en\/assets$/);
+  await expect(page.getByRole("heading", { name: "Asset rails at a glance" })).toBeVisible();
+});
+
 test("asset policy exposes network-specific controls", async ({ page }) => {
   await page.goto("/assets/usdt");
   await expect(page.getByRole("heading", { name: /USDT Tether/i })).toBeVisible();
@@ -60,7 +79,11 @@ test("transfer endpoint replays the same idempotent request", async ({ request }
   const first = await request.post("/api/transfers", { headers, data });
   expect(first.status()).toBe(201);
   const firstBody = await first.json() as { transfer: { id: string } };
-  const replay = await request.post("/api/transfers", { headers, data });
+  const cookie = first.headersArray()
+    .filter((header) => header.name.toLowerCase() === "set-cookie")
+    .map((header) => header.value.split(";", 1)[0])
+    .join("; ");
+  const replay = await request.post("/api/transfers", { headers: { ...headers, cookie }, data });
   expect(replay.status()).toBe(200);
   expect(replay.headers()["x-idempotent-replay"]).toBe("true");
   expect((await replay.json()).transfer.id).toBe(firstBody.transfer.id);

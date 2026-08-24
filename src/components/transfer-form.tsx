@@ -8,13 +8,15 @@ import { AssetIcon } from "@/components/asset-icon";
 import { StatusPill } from "@/components/status-pill";
 import { ASSETS, DEFAULT_ADDRESSES } from "@/lib/assets";
 import { formatAmount, formatCurrency } from "@/lib/format";
+import { localizedPath, translate, translateRailTime, type Locale } from "@/lib/i18n";
 import type { TransferDirection } from "@/lib/transfers";
 
 type FieldErrors = Record<string, string[]>;
 
-export function TransferForm() {
+export function TransferForm({ locale }: { locale: Locale }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = (source: string, values: Record<string, string | number> = {}) => translate(locale, source, values);
   const initialSymbol = searchParams.get("asset")?.toUpperCase();
   const initialAsset = ASSETS.find((asset) => asset.symbol === initialSymbol) ?? ASSETS[0];
   const initialNetwork = initialAsset.networks.find((network) => network.id === searchParams.get("network")) ?? initialAsset.networks[0];
@@ -62,19 +64,19 @@ export function TransferForm() {
       const idempotencyKey = crypto.randomUUID();
       const response = await fetch("/api/transfers", {
         method: "POST",
-        headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+        headers: { "content-type": "application/json", "idempotency-key": idempotencyKey, "x-assetrail-locale": locale },
         body: JSON.stringify({ direction, asset: asset.symbol, network: network.id, amount, address, memo: memo || undefined }),
       });
       const body = await response.json() as { transfer?: { id: string }; error?: string; fields?: FieldErrors };
 
       if (!response.ok || !body.transfer) {
         setErrors(body.fields ?? {});
-        setSubmitError(body.error ?? "The request could not be validated.");
+        setSubmitError(body.error ?? t("The request could not be validated."));
         return;
       }
-      router.push(`/transfers/${body.transfer.id}`);
+      router.push(localizedPath(locale, `/transfers/${body.transfer.id}`));
     } catch {
-      setSubmitError("The simulation endpoint is unavailable. No transaction was sent.");
+      setSubmitError(t("The simulation endpoint is unavailable. No transaction was sent."));
     } finally {
       setPending(false);
     }
@@ -85,17 +87,17 @@ export function TransferForm() {
   return (
     <div className="transfer-layout">
       <form className="transfer-form" onSubmit={submit} noValidate>
-        <div className="direction-toggle" aria-label="Transfer direction">
+        <div className="direction-toggle" aria-label={t("Transfer direction")}>
           <button className={direction === "deposit" ? "active" : ""} onClick={() => setDirection("deposit")} type="button">
-            <ArrowDownToLine size={17} /> Deposit
+            <ArrowDownToLine size={17} /> {t("Deposit")}
           </button>
           <button className={direction === "withdrawal" ? "active" : ""} onClick={() => setDirection("withdrawal")} type="button">
-            <ArrowUpFromLine size={17} /> Withdraw
+            <ArrowUpFromLine size={17} /> {t("Withdraw")}
           </button>
         </div>
 
         <div className="form-section">
-          <div className="form-section__label"><span>01</span><div><strong>Select an asset</strong><small>Policy rules update with your selection</small></div></div>
+          <div className="form-section__label"><span>01</span><div><strong>{t("Select an asset")}</strong><small>{t("Policy rules update with your selection")}</small></div></div>
           <div className="asset-picker">
             {ASSETS.map((candidate) => (
               <button className={candidate.symbol === asset.symbol ? "active" : ""} key={candidate.symbol} onClick={() => selectAsset(candidate.symbol)} type="button">
@@ -106,34 +108,34 @@ export function TransferForm() {
         </div>
 
         <div className="form-section">
-          <div className="form-section__label"><span>02</span><div><strong>Choose a network</strong><small>Availability is evaluated before submission</small></div></div>
+          <div className="form-section__label"><span>02</span><div><strong>{t("Choose a network")}</strong><small>{t("Availability is evaluated before submission")}</small></div></div>
           <div className="network-picker">
             {asset.networks.map((candidate) => (
               <button className={candidate.id === network.id ? "active" : ""} key={candidate.id} onClick={() => selectNetwork(candidate.id)} type="button">
-                <span><strong>{candidate.name}</strong><small>{candidate.chain}</small></span><StatusPill status={candidate.status} />
+                <span><strong>{candidate.name}</strong><small>{candidate.chain}</small></span><StatusPill locale={locale} status={candidate.status} />
               </button>
             ))}
           </div>
-          {disabled ? <div className="inline-alert inline-alert--warning"><AlertTriangle size={17} /><span>{direction === "withdrawal" ? "Withdrawals" : "Deposits"} are paused for this rail. Select another network or direction.</span></div> : null}
+          {disabled ? <div className="inline-alert inline-alert--warning"><AlertTriangle size={17} /><span>{t(direction === "withdrawal" ? "Withdrawals are paused for this rail. Select another network or direction." : "Deposits are paused for this rail. Select another network or direction.")}</span></div> : null}
         </div>
 
         <div className="form-section">
-          <div className="form-section__label"><span>03</span><div><strong>Enter transfer details</strong><small>Demo values only—never paste a private key</small></div></div>
+          <div className="form-section__label"><span>03</span><div><strong>{t("Enter transfer details")}</strong><small>{t("Demo values only—never paste a private key")}</small></div></div>
           <div className="field-grid">
             <label className="field field--amount">
-              <span>Amount</span>
+              <span>{t("Amount")}</span>
               <span className="input-with-suffix"><input aria-invalid={Boolean(errors.amount)} inputMode="decimal" min="0" name="amount" onChange={(event) => setAmount(event.target.value)} value={amount} /><strong>{asset.symbol}</strong></span>
-              {errors.amount ? <small className="field-error">{errors.amount[0]}</small> : <small>Minimum {formatAmount(network.minWithdrawal)} {asset.symbol}</small>}
+              {errors.amount ? <small className="field-error">{errors.amount[0]}</small> : <small>{t("Minimum {amount} {asset}", { amount: formatAmount(network.minWithdrawal), asset: asset.symbol })}</small>}
             </label>
             <label className="field">
-              <span>Destination address</span>
+              <span>{t("Destination address")}</span>
               <input aria-invalid={Boolean(errors.address)} autoComplete="off" name="address" onChange={(event) => setAddress(event.target.value)} spellCheck={false} value={address} />
-              {errors.address ? <small className="field-error">{errors.address[0]}</small> : <small>Prefilled with a public demo address</small>}
+              {errors.address ? <small className="field-error">{errors.address[0]}</small> : <small>{t("Prefilled with a public demo address")}</small>}
             </label>
             {network.memoLabel ? (
               <label className="field">
-                <span>{network.memoLabel}</span>
-                <input aria-invalid={Boolean(errors.memo)} inputMode="numeric" name="memo" onChange={(event) => setMemo(event.target.value)} placeholder="Required by this network" value={memo} />
+                <span>{t(network.memoLabel)}</span>
+                <input aria-invalid={Boolean(errors.memo)} inputMode="numeric" name="memo" onChange={(event) => setMemo(event.target.value)} placeholder={t("Required by this network")} value={memo} />
                 {errors.memo ? <small className="field-error">{errors.memo[0]}</small> : null}
               </label>
             ) : null}
@@ -143,27 +145,27 @@ export function TransferForm() {
         {submitError ? <div className="inline-alert inline-alert--danger" role="alert"><AlertTriangle size={17} /><span>{submitError}</span></div> : null}
 
         <button className="button button--primary transfer-submit" disabled={pending || disabled || !hydrated} type="submit">
-          {pending ? <><LoaderCircle className="spin" size={17} /> Validating request</> : <><ShieldCheck size={17} /> Simulate {direction}</>}
+          {pending ? <><LoaderCircle className="spin" size={17} /> {t("Validating request")}</> : <><ShieldCheck size={17} /> {t("Simulate {direction}", { direction: t(direction) })}</>}
         </button>
-        <p className="simulation-copy"><Info size={14} /> This creates an HttpOnly demo record. It cannot sign or broadcast a real transaction.</p>
+        <p className="simulation-copy"><Info size={14} /> {t("This creates an HttpOnly demo record. It cannot sign or broadcast a real transaction.")}</p>
       </form>
 
       <aside className="policy-summary">
-        <div className="panel-header"><div><span className="panel-kicker">POLICY PREVIEW</span><h2>{asset.symbol} on {network.name}</h2></div><StatusPill status={network.status} /></div>
+        <div className="panel-header"><div><span className="panel-kicker">{t("POLICY PREVIEW")}</span><h2>{t("{asset} on {network}", { asset: asset.symbol, network: network.name })}</h2></div><StatusPill locale={locale} status={network.status} /></div>
         <div className="policy-summary__route"><AssetIcon asset={asset} size="lg" /><span className="route-line" /><span className="network-node">{network.chain}</span></div>
         <dl>
-          <div><dt>Direction</dt><dd>{direction}</dd></div>
-          <div><dt>Network fee</dt><dd>{direction === "withdrawal" ? `${formatAmount(network.withdrawalFee)} ${asset.symbol}` : "—"}</dd></div>
-          <div><dt>Estimated receive</dt><dd>{formatAmount(estimatedReceive)} {asset.symbol}</dd></div>
-          <div><dt>USD reference</dt><dd>{formatCurrency(estimatedReceive * asset.price)}</dd></div>
-          <div><dt>Confirmations</dt><dd>{network.confirmations}</dd></div>
-          <div><dt>Expected rail time</dt><dd>{network.estimatedMinutes}</dd></div>
+          <div><dt>{t("Direction")}</dt><dd>{t(direction)}</dd></div>
+          <div><dt>{t("Network fee")}</dt><dd>{direction === "withdrawal" ? `${formatAmount(network.withdrawalFee)} ${asset.symbol}` : "—"}</dd></div>
+          <div><dt>{t("Estimated receive")}</dt><dd>{formatAmount(estimatedReceive)} {asset.symbol}</dd></div>
+          <div><dt>{t("USD reference")}</dt><dd>{formatCurrency(estimatedReceive * asset.price)}</dd></div>
+          <div><dt>{t("Confirmations")}</dt><dd>{network.confirmations}</dd></div>
+          <div><dt>{t("Expected rail time")}</dt><dd>{translateRailTime(locale, network.estimatedMinutes)}</dd></div>
         </dl>
         <div className="policy-checks">
-          <span><CheckCircle2 /> Address format validation</span>
-          <span><CheckCircle2 /> Availability & minimum rules</span>
-          <span><CheckCircle2 /> Duplicate request protection</span>
-          <span><CheckCircle2 /> Manual hold above 100,000</span>
+          <span><CheckCircle2 /> {t("Address format validation")}</span>
+          <span><CheckCircle2 /> {t("Availability & minimum rules")}</span>
+          <span><CheckCircle2 /> {t("Duplicate request protection")}</span>
+          <span><CheckCircle2 /> {t("Manual hold above 100,000")}</span>
         </div>
       </aside>
     </div>
